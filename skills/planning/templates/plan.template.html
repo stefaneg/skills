@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{plan_title}}</title>
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <style>
+    .mermaid-note {
+      margin-top: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">Plan Review Surface</p>
+      <h1>{{plan_title}}</h1>
+      <p class="lede">{{goal}}</p>
+    </header>
+
+    <section class="section">
+      <h2>Legend</h2>
+      <div class="legend">
+        <span><span class="swatch desired"></span> green = added / desired</span>
+        <span><span class="swatch failing"></span> red = removed / failing</span>
+        <span><span class="swatch warning"></span> yellow = uncertainty / review</span>
+        <span><span class="swatch existing"></span> blue = existing</span>
+        <span><span class="swatch context"></span> gray = context</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Vertical slices</h2>
+      <div class="grid">
+        <article class="panel state-desired">
+          <h3>{{slice_1_title}}</h3>
+          <p>{{slice_1_outcome}}</p>
+          <ul class="plain-list">
+            <li>{{slice_1_step_1}}</li>
+            <li>{{slice_1_step_2}}</li>
+          </ul>
+          <div class="feedback question" data-lens="API">
+            <strong>Question:</strong> {{question_1}}
+          </div>
+        </article>
+        <article class="panel state-existing">
+          <h3>{{slice_2_title}}</h3>
+          <p>{{slice_2_outcome}}</p>
+          <ul class="plain-list">
+            <li>{{slice_2_step_1}}</li>
+            <li>{{slice_2_step_2}}</li>
+          </ul>
+          <div class="feedback uncertainty" data-lens="Operations">
+            <strong>Uncertainty:</strong> {{uncertainty_1}}
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Datatypes</h2>
+      <div class="diagram">
+        <pre class="mermaid">
+classDiagram
+direction TB
+
+class {{class_1}}:::highlightAdded {
+    +{{class_1_field_1}}
+    +{{class_1_field_2}}
+    +{{class_1_method_1}}
+}
+
+class {{class_2}} {
+    +{{class_2_field_1}}
+    +{{class_2_field_2}}
+}
+
+class {{class_3}}:::highlightReview {
+    +{{class_3_field_1}}
+    +{{class_3_field_2}}
+}
+
+{{class_1}} --> {{class_2}} : {{relation_1}}
+{{class_2}} --> {{class_3}} : {{relation_2}}
+
+classDef highlightAdded fill:#e7f7ee,stroke:#1f9d55,color:#172033,stroke-width:2px
+classDef highlightRemoved fill:#fdeceb,stroke:#c0392b,color:#172033,stroke-width:2px
+classDef highlightReview fill:#fff7db,stroke:#d4a017,color:#172033,stroke-width:2px
+classDef highlightExisting fill:#eaf1ff,stroke:#2563eb,color:#172033,stroke-width:2px
+classDef highlightContext fill:#f3f4f6,stroke:#6b7280,color:#172033,stroke-width:2px
+cssClass "{{class_1}}" highlightAdded
+cssClass "{{class_3}}" highlightReview
+        </pre>
+      </div>
+      <p class="mermaid-note code-note">Use Mermaid classes to represent structs, records, DTOs, and other data types. Prefer direct names from the code or plan.</p>
+      <div class="feedback assumption" data-lens="Naming">
+        <strong>Assumption:</strong> The class names in the diagram should closely match the intended implementation names.
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Risks</h2>
+      <div class="grid">
+        <article class="panel state-warning">
+          <h3>Risk</h3>
+          <p>{{risk_1}}</p>
+        </article>
+        <article class="panel state-warning">
+          <h3>Risk</h3>
+          <p>{{risk_2}}</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "default"
+    });
+  </script>
+</body>
+</html>

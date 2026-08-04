@@ -1,0 +1,282 @@
+#!/usr/bin/env bash
+#
+# skills — manifest-driven management of agent skills across Claude and Codex.
+#
+#   skills sync              resolve sources, link installed skills, refresh overrides
+#   skills list              show the manifest with resolved paths and tiers
+#   skills status            show drift between the manifest and what's on disk
+#   skills update [source]   move a github source to the tip of its ref, relock
+#   skills overrides         print the skillOverrides block for ~/.claude/settings.json
+#   skills doctor            find orphaned links, duplicate skills, missing sources
+#
+# The manifest (skills.json) is authoritative. Everything under vendor/ is a
+# cache and can be deleted at any time.
+
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MANIFEST="$REPO/skills.json"
+LOCK="$REPO/skills.lock.json"
+VENDOR="$REPO/vendor"
+CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+
+die() { echo "error: $*" >&2; exit 1; }
+info() { echo "$*"; }
+
+command -v jq >/dev/null || die "jq is required"
+[ -f "$MANIFEST" ] || die "no manifest at $MANIFEST"
+
+expand_tilde() { echo "${1/#\~/$HOME}"; }
+
+manifest_targets() { jq -r '.targets[]' "$MANIFEST"; }
+
+# ---------------------------------------------------------------- sources ----
+
+# Clone or fetch a github source into vendor/<name>, checked out at its ref.
+resolve_source() {
+  local name="$1" repo ref dir
+  repo="$(jq -r --arg n "$name" '.sources[$n].repo' "$MANIFEST")"
+  ref="$(jq -r --arg n "$name" '.sources[$n].ref // "main"' "$MANIFEST")"
+  dir="$VENDOR/$name"
+
+  if [ ! -d "$dir/.git" ]; then
+    mkdir -p "$VENDOR"
+    git clone --quiet --filter=blob:none "https://github.com/$repo.git" "$dir"
+  fi
+
+  # A locked SHA wins over the ref, so sync is reproducible. `update` is the
+  # only command that moves a source forward.
+  local pinned=""
+  [ -f "$LOCK" ] && pinned="$(jq -r --arg n "$name" '.sources[$n].sha // ""' "$LOCK")"
+
+  git -C "$dir" fetch --quiet origin "$ref"
+  if [ -n "$pinned" ]; then
+    git -C "$dir" checkout --quiet "$pinned" 2>/dev/null || git -C "$dir" checkout --quiet FETCH_HEAD
+  else
+    git -C "$dir" checkout --quiet FETCH_HEAD
+  fi
+}
+
+source_root() {
+  local name="$1" type
+  type="$(jq -r --arg n "$name" '.sources[$n].type' "$MANIFEST")"
+  case "$type" in
+    local) echo "$REPO/$(jq -r --arg n "$name" '.sources[$n].path' "$MANIFEST")" ;;
+    github) echo "$VENDOR/$name" ;;
+    *) die "unknown source type '$type' for source '$name'" ;;
+  esac
+}
+
+# Locate a skill by directory name anywhere under its source root. External
+# repos nest skills under category dirs (skills/engineering/tdd/SKILL.md) and
+# reorganise them without warning, so search rather than hardcode a path.
+find_skill_dir() {
+  local root="$1" skill="$2" hit
+  hit="$(find "$root" -type d -name "$skill" -not -path '*/.git/*' -not -path '*/node_modules/*' \
+         -exec test -f '{}/SKILL.md' \; -print 2>/dev/null | head -1)"
+  [ -n "$hit" ] || return 1
+  echo "$hit"
+}
+
+# ------------------------------------------------------------------ links ----
+
+# Only ever remove a link that points into this repo or its vendor cache —
+# never touch a skill some other tool installed.
+owned_by_us() {
+  local link="$1" resolved
+  [ -L "$link" ] || return 1
+  resolved="$(cd "$(dirname "$link")" && readlink "$link")"
+  case "$resolved" in "$REPO"/*) return 0 ;; *) return 1 ;; esac
+}
+
+link_skill() {
+  local src="$1" name="$2" target_dir="$3"
+  local target="$target_dir/$name"
+
+  if [ -e "$target" ] && ! [ -L "$target" ]; then
+    die "$target is a real directory, not a link. Move it into this repo's skills/ or delete it, then re-run."
+  fi
+  ln -sfn "$src" "$target"
+}
+
+prune_targets() {
+  local target_dir="$1" wanted="$2" link name
+  [ -d "$target_dir" ] || return 0
+  for link in "$target_dir"/*; do
+    [ -e "$link" ] || [ -L "$link" ] || continue
+    owned_by_us "$link" || continue
+    name="$(basename "$link")"
+    if ! grep -qx "$name" <<<"$wanted"; then
+      rm -f "$link"
+      info "  unlinked $name (no longer in manifest)"
+    fi
+  done
+}
+
+# -------------------------------------------------------------- overrides ----
+
+# `on-demand` maps to Claude's user-invocable-only: the skill stays typable as
+# /name but is dropped from the listing the model sees. This is what keeps the
+# model's choice set small while the library on disk stays large.
+build_overrides() {
+  jq '[.install[] | select(.tier == "on-demand") | .skill]
+      | sort
+      | map({key: ., value: "user-invocable-only"})
+      | from_entries' "$MANIFEST"
+}
+
+write_overrides() {
+  local overrides tmp
+  overrides="$(build_overrides)"
+  [ -f "$CLAUDE_SETTINGS" ] || die "no $CLAUDE_SETTINGS to update"
+
+  cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
+  tmp="$(mktemp)"
+  # Preserve any hand-written override not managed by the manifest.
+  jq --argjson managed "$overrides" \
+     '.skillOverrides = ((.skillOverrides // {}) + $managed)' \
+     "$CLAUDE_SETTINGS" > "$tmp"
+  mv "$tmp" "$CLAUDE_SETTINGS"
+  info "wrote $(jq 'length' <<<"$overrides") skillOverrides to $CLAUDE_SETTINGS (backup at $CLAUDE_SETTINGS.bak)"
+}
+
+# --------------------------------------------------------------- commands ----
+
+cmd_sync() {
+  local write_settings=0
+  [ "${1:-}" = "--write-settings" ] && write_settings=1
+
+  # Fetch every github source referenced by an installed skill.
+  local needed
+  needed="$(jq -r '[.install[] | select(.tier != "off") | .source] | unique[]' "$MANIFEST")"
+  while read -r name; do
+    [ -n "$name" ] || continue
+    [ "$(jq -r --arg n "$name" '.sources[$n].type' "$MANIFEST")" = "github" ] || continue
+    info "resolving $name..."
+    resolve_source "$name"
+  done <<<"$needed"
+
+  relock
+
+  local wanted=""
+  while read -r entry; do
+    [ -n "$entry" ] || continue
+    local skill source tier root src
+    skill="$(cut -f1 <<<"$entry")"
+    source="$(cut -f2 <<<"$entry")"
+    tier="$(cut -f3 <<<"$entry")"
+    [ "$tier" = "off" ] && continue
+
+    root="$(source_root "$source")"
+    if ! src="$(find_skill_dir "$root" "$skill")"; then
+      echo "warning: '$skill' not found in source '$source' — renamed or removed upstream?" >&2
+      continue
+    fi
+
+    while read -r target; do
+      target="$(expand_tilde "$target")"
+      mkdir -p "$target"
+      link_skill "$src" "$skill" "$target"
+    done < <(manifest_targets)
+
+    wanted+="$skill"$'\n'
+    info "  $skill [$tier] <- $source"
+  done < <(jq -r '.install[] | [.skill, .source, .tier] | @tsv' "$MANIFEST")
+
+  while read -r target; do
+    prune_targets "$(expand_tilde "$target")" "$wanted"
+  done < <(manifest_targets)
+
+  if [ "$write_settings" = 1 ]; then
+    write_overrides
+  else
+    info ""
+    info "skillOverrides not written. Review with 'bin/skills overrides', apply with 'bin/skills sync --write-settings'."
+  fi
+}
+
+relock() {
+  local out='{"sources":{}}'
+  while read -r name; do
+    [ -n "$name" ] || continue
+    [ "$(jq -r --arg n "$name" '.sources[$n].type' "$MANIFEST")" = "github" ] || continue
+    [ -d "$VENDOR/$name/.git" ] || continue
+    local sha; sha="$(git -C "$VENDOR/$name" rev-parse HEAD)"
+    out="$(jq --arg n "$name" --arg sha "$sha" '.sources[$n] = {sha: $sha}' <<<"$out")"
+  done < <(jq -r '.sources | keys[]' "$MANIFEST")
+  echo "$out" > "$LOCK"
+}
+
+cmd_update() {
+  local only="${1:-}"
+  [ -f "$LOCK" ] && jq 'del(.sources)' "$LOCK" > "$LOCK.tmp" && mv "$LOCK.tmp" "$LOCK"
+  while read -r name; do
+    [ -n "$name" ] || continue
+    [ -n "$only" ] && [ "$name" != "$only" ] && continue
+    [ "$(jq -r --arg n "$name" '.sources[$n].type' "$MANIFEST")" = "github" ] || continue
+    info "updating $name..."
+    resolve_source "$name"
+  done < <(jq -r '.sources | keys[]' "$MANIFEST")
+  relock
+  info "relocked. Run 'bin/skills sync' to apply."
+}
+
+cmd_list() {
+  printf "%-32s %-14s %-12s %s\n" SKILL SOURCE TIER PATH
+  while read -r entry; do
+    local skill source tier root src
+    skill="$(cut -f1 <<<"$entry")"; source="$(cut -f2 <<<"$entry")"; tier="$(cut -f3 <<<"$entry")"
+    root="$(source_root "$source")"
+    src="$(find_skill_dir "$root" "$skill" 2>/dev/null || echo '(unresolved)')"
+    printf "%-32s %-14s %-12s %s\n" "$skill" "$source" "$tier" "${src/#$REPO\//}"
+  done < <(jq -r '.install[] | [.skill, .source, .tier] | @tsv' "$MANIFEST")
+}
+
+cmd_status() {
+  local target
+  while read -r target; do
+    target="$(expand_tilde "$target")"
+    echo "== $target"
+    [ -d "$target" ] || { echo "   (missing)"; continue; }
+    local link name
+    for link in "$target"/*; do
+      [ -e "$link" ] || [ -L "$link" ] || continue
+      name="$(basename "$link")"
+      if owned_by_us "$link"; then
+        jq -e --arg s "$name" '.install[] | select(.skill == $s)' "$MANIFEST" >/dev/null \
+          && echo "   ok        $name" \
+          || echo "   orphan    $name (ours, not in manifest)"
+      elif [ -L "$link" ]; then
+        echo "   foreign   $name -> $(readlink "$link")"
+      else
+        echo "   unmanaged $name (real directory)"
+      fi
+    done
+  done < <(manifest_targets)
+}
+
+cmd_doctor() {
+  echo "== manifest entries with no resolvable skill directory"
+  while read -r entry; do
+    local skill source root
+    skill="$(cut -f1 <<<"$entry")"; source="$(cut -f2 <<<"$entry")"
+    root="$(source_root "$source")"
+    find_skill_dir "$root" "$skill" >/dev/null 2>&1 || echo "   $skill ($source)"
+  done < <(jq -r '.install[] | select(.tier != "off") | [.skill, .source] | @tsv' "$MANIFEST")
+
+  echo "== skills claimed by more than one manifest entry"
+  jq -r '.install | group_by(.skill)[] | select(length > 1) | "   \(.[0].skill): \(map(.source) | join(", "))"' "$MANIFEST"
+
+  echo "== tier counts (auto = visible to the model)"
+  jq -r '.install | group_by(.tier)[] | "   \(.[0].tier): \(length)"' "$MANIFEST"
+}
+
+case "${1:-sync}" in
+  sync)      shift || true; cmd_sync "$@" ;;
+  list)      cmd_list ;;
+  status)    cmd_status ;;
+  update)    shift || true; cmd_update "${1:-}" ;;
+  overrides) build_overrides ;;
+  doctor)    cmd_doctor ;;
+  *)         sed -n '3,20p' "${BASH_SOURCE[0]}" ;;
+esac

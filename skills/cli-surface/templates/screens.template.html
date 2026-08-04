@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>CLI Surface Screens — &lt;Feature Title&gt;</title>
+
+    <!-- ============================================================
+         RENDERING RULES — read these before filling in the template.
+         This template is the single source of truth for how to render
+         CLI surface screens. The cli-surface skill defers to these
+         instructions; do not duplicate them in the skill or in the
+         spec. If you need to change how screens render, change this
+         template and re-render — never edit a rendered screens file.
+
+         1. Header
+
+            - Replace the <title> and <h1> with the feature title.
+            - Replace <code>&lt;paired-spec-file&gt;.md</code> in the
+              .meta paragraph with the actual spec filename.
+
+         2. Per-design aliases (the second <style> block in <head>)
+
+            - Add semantic class aliases for tokens that recur in this
+              design's screens (e.g. .image-name { color: var(--fg-yellow); }).
+            - Every alias MUST resolve to a base catalog color via
+              var(--fg-*). Do NOT introduce new colors.
+            - Leave the block empty if no aliases are needed.
+
+         3. The legend (<section class="legend">)
+
+            - Preserve verbatim across all generated files. Do not edit.
+
+         4. Variants and screens
+
+            - Replace the example <section class="variant"> entirely.
+              Leaving the example in alongside the real screens is a fault.
+            - One <section class="variant"> per output variant in the spec.
+            - Each variant contains one or more <div class="screen"> blocks.
+
+         5. Per-screen structure (inside .terminal)
+
+            - .terminal uses `white-space: pre`. Newlines in the markup
+              are literal newlines in output. Do NOT use <br>. Do NOT
+              indent body lines — the leading whitespace would render.
+              The opening `<` of the first body element sits at column 1
+              of its source line.
+            - First body line is the prompt:
+                <span class="prompt-sigil">$</span> <command>
+            - Stream-prefixed lines begin with
+                <span class="stream-stdout">S|</span>   (stdout)
+              or
+                <span class="stream-stderr">E|</span>   (stderr)
+              followed by a single space, then the line content.
+            - All HTML entities (&lt; &gt; &amp; &quot;) MUST be escaped.
+              Raw `<` inside the terminal block will break parsing.
+            - Interactive input typed by the user is rendered on its own
+              line as:
+                <span class="user-input">&lt; user types: y &gt;</span>
+            - The .exit div FOLLOWS the closing </div> of .terminal:
+                <div class="exit">[exit <span class="exit-code-ok">0</span>]</div>
+              Use .exit-code-ok for 0, .exit-code-fail for any non-zero.
+
+         6. Side-effect-only commands (no stdout by design)
+
+            - The .terminal block contains ONLY the prompt line — no
+              S|/E| body lines.
+            - A .design-flag banner FOLLOWS the .exit line, explaining
+              that the absence of output is intentional.
+            - NEVER render side-effect output as an `S| (no output ...)`
+              line — the stdout prefix is reserved for actual stdout
+              content, and hiding the meta-annotation among the captured
+              streams defeats the point of having a flag at all.
+
+         7. Color
+
+            - Color is applied via CSS classes (catalog or per-design
+              aliases) — NEVER inline `style="..."` attributes.
+            - Catalog (always available): .fg-red .fg-green .fg-yellow
+              .fg-blue .fg-cyan .fg-magenta .bold .dim .italic
+              .error-label .warning-label .success-label .prompt-sigil
+              .stream-stdout .stream-stderr .timestamp .user-input
+              .placeholder .hint-label .hint-text
+            - Per-design aliases live in the second <style> block in
+              <head> and MUST resolve to var(--fg-*).
+            - New base colors require a template change, not a per-design
+              override.
+
+         8. Hint lines (only when the project's output-spec documents a
+            hint system; see the cli-surface skill, step 2e)
+
+            - Rendered on their own stderr-prefixed line, two-space
+              indented after the `E|` prefix:
+                <span class="stream-stderr">E|</span>   <span class="hint-label">Hint:</span> <span class="hint-text">...</span>
+
+         9. Out of scope for screens
+
+            - Cursor movement, screen clears, line redraws, in-place
+              spinners, progress-bar animation: describe them in prose
+              in the optional <section class="non-textual"> at the
+              bottom of this file. They are NOT rendered in .terminal.
+
+         10. Design flags
+
+            - The .design-flag banner is the place to surface any
+              design choice that warrants explicit reviewer attention:
+              side-effect-only commands (mandatory), non-zero exits on
+              a happy path, prompts with no --yes escape, structured
+              results that overlap with stderr text, etc. Same banner
+              styling; vary the body text.
+         ============================================================ -->
+
+    <style>
+        /* ============================================================
+           PALETTE — single source of truth. Retheme by changing these.
+           Values mirror GitHub Dark for the terminal; the page chrome
+           is light so the file reads as a review document.
+           ============================================================ */
+        :root {
+            --page-bg:      #fafafa;
+            --page-fg:      #1a1a1a;
+            --page-muted:   #57606a;
+            --rule:         #d0d7de;
+            --code-bg:      #f0f1f3;
+
+            --terminal-bg:  #0d1117;
+            --terminal-fg:  #e6edf3;
+
+            --fg-red:       #ff7b72;
+            --fg-green:     #7ee787;
+            --fg-yellow:    #e3b341;
+            --fg-blue:      #79c0ff;
+            --fg-cyan:      #56d4dd;
+            --fg-magenta:   #d2a8ff;
+            --dim:          #7d8590;
+
+            --stream-out:   #7d8590;
+            --stream-err:   #d29922;
+
+            --exit-ok:      #1a7f37;
+            --exit-fail:    #cf222e;
+        }
+
+        /* ============================================================
+           Page layout
+           ============================================================ */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 980px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            color: var(--page-fg);
+            background: var(--page-bg);
+            line-height: 1.5;
+        }
+        h1 { font-size: 1.5rem; margin: 0 0 0.4rem; }
+        h2 { font-size: 1.2rem; margin: 1.5rem 0 0.6rem; }
+        h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+        .meta {
+            color: var(--page-muted);
+            font-size: 0.9rem;
+            margin: 0 0 1.6rem;
+        }
+        code {
+            background: var(--code-bg);
+            padding: 0.05rem 0.3rem;
+            border-radius: 3px;
+            font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono",
+                "Liberation Mono", monospace;
+            font-size: 0.9em;
+        }
+
+        /* ============================================================
+           Legend — explains S| / E| / [exit N] / user input / sentinel
+           Keep verbatim across all generated screens files.
+           ============================================================ */
+        .legend {
+            border: 1px solid var(--rule);
+            border-radius: 6px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 2rem;
+            background: #fff;
+        }
+        .legend h2 {
+            font-size: 1rem;
+            margin: 0 0 0.6rem;
+        }
+        .legend dl {
+            margin: 0;
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            column-gap: 1.2rem;
+            row-gap: 0.5rem;
+            font-size: 0.9rem;
+            align-items: baseline;
+        }
+        .legend dt {
+            font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono",
+                "Liberation Mono", monospace;
+            white-space: nowrap;
+        }
+        .legend dd { margin: 0; }
+
+        /* ============================================================
+           Variant + screen + terminal layout
+           ============================================================ */
+        .variant { margin-bottom: 2rem; }
+        .variant-note {
+            color: var(--page-muted);
+            font-size: 0.9rem;
+            margin: 0.2rem 0 0.6rem;
+            font-style: italic;
+        }
+        .screen + .screen { margin-top: 0.6rem; }
+
+        .terminal {
+            background: var(--terminal-bg);
+            color: var(--terminal-fg);
+            font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono",
+                "Liberation Mono", monospace;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            padding: 1rem 1.25rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+        }
+
+        .exit {
+            margin-top: 0.4rem;
+            font-family: "SF Mono", Menlo, Consolas, "DejaVu Sans Mono",
+                "Liberation Mono", monospace;
+            font-size: 0.85rem;
+            color: var(--page-muted);
+        }
+        .exit-code-ok   { color: var(--exit-ok);   font-weight: 600; }
+        .exit-code-fail { color: var(--exit-fail); font-weight: 600; }
+
+        /* ============================================================
+           Design flag — banner shown OUTSIDE and AFTER the exit line.
+           Used when a screen exposes a design choice worth review
+           (mandatory for side-effect-only commands; also for any other
+           design choice the reviewer should explicitly confirm).
+           Deliberately loud so reviewers cannot miss it.
+           ============================================================ */
+        .design-flag {
+            margin-top: 0.5rem;
+            padding: 0.55rem 0.85rem;
+            background: #fff8c5;
+            border-left: 4px solid #d4a72c;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #2d2410;
+        }
+        .design-flag::before {
+            content: "⚠ ";
+            color: #9a6700;
+            font-weight: 700;
+            margin-right: 0.15rem;
+        }
+        .design-flag code {
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        /* ============================================================
+           CATALOG — base highlight classes used inside .terminal blocks.
+           Per-design aliases reuse these via var(--...). Do not add new
+           colors outside this catalog.
+           ============================================================ */
+        .prompt-sigil  { color: var(--fg-blue); }
+        .stream-stdout { color: var(--stream-out); }
+        .stream-stderr { color: var(--stream-err); }
+        .timestamp     { color: var(--dim); }
+        .placeholder   { color: var(--dim); font-style: italic; }
+        .user-input    { color: var(--fg-cyan); font-style: italic; }
+
+        .fg-red     { color: var(--fg-red); }
+        .fg-green   { color: var(--fg-green); }
+        .fg-yellow  { color: var(--fg-yellow); }
+        .fg-blue    { color: var(--fg-blue); }
+        .fg-cyan    { color: var(--fg-cyan); }
+        .fg-magenta { color: var(--fg-magenta); }
+        .bold       { font-weight: 600; }
+        .dim        { color: var(--dim); }
+        .italic     { font-style: italic; }
+
+        /* Common semantic conveniences (stable across designs) */
+        .error-label   { color: var(--fg-red);    font-weight: 600; }
+        .warning-label { color: var(--fg-yellow); font-weight: 600; }
+        .success-label { color: var(--fg-green);  font-weight: 600; }
+
+        /* Hint line — actionable next step rendered after an error.
+           Used only when the project's output-spec documents a hint
+           system (see the cli-surface skill, step 2e). Two-space-
+           indented in source, dim and italic so it reads as advice
+           rather than as part of the error itself. */
+        .hint-label    { color: var(--dim);       font-weight: 600; }
+        .hint-text     { color: var(--dim);       font-style: italic; }
+    </style>
+
+    <!-- ============================================================
+         PER-DESIGN ALIASES — optional.
+         Add semantic class aliases for tokens that recur in this
+         design's screens. Aliases MUST resolve to a base catalog
+         color via var(--fg-*) — never introduce new colors.
+
+         Example:
+             .image-name    { color: var(--fg-yellow); }
+             .image-version { color: var(--fg-green); }
+             .task-id       { color: var(--fg-cyan); }
+         ============================================================ -->
+    <style>
+        /* (replace with design-specific aliases, or leave empty) */
+    </style>
+</head>
+<body>
+
+<h1>CLI Surface Screens — &lt;Feature Title&gt;</h1>
+<p class="meta">
+    Rendered from <code>&lt;paired-spec-file&gt;.md</code>.
+    Do not edit screens directly — change the spec and re-render.
+</p>
+
+<section class="legend">
+    <h2>Legend</h2>
+    <dl>
+        <dt><span class="stream-stdout">S|</span></dt>
+        <dd>line written to <strong>stdout</strong> — the command result; what scripts pipe to other tools</dd>
+
+        <dt><span class="stream-stderr">E|</span></dt>
+        <dd>line written to <strong>stderr</strong> — progress, diagnostics, errors; not a stability contract</dd>
+
+        <dt><code>[exit N]</code></dt>
+        <dd>process exit code: <code>0</code> = success, <code>&gt;0</code> = failure (specific codes per the spec's exit-code map)</dd>
+
+        <dt><span class="user-input">&lt; user types: foo &gt;</span></dt>
+        <dd>interactive input typed by the user at a prompt</dd>
+
+        <dt><span class="stream-stderr">E|</span>&nbsp;&nbsp;<span class="hint-label">Hint:</span> <span class="hint-text">…</span></dt>
+        <dd>indented advice line following an error — the actionable next step (rendered dim/italic so it reads as guidance rather than as part of the error). Present only when the project documents a hint system.</dd>
+
+        <dt>⚠ <em>design flag</em></dt>
+        <dd>amber banner under the exit line — flags a screen worth design review (e.g., side-effect-only commands: verify the absence of output is intentional)</dd>
+    </dl>
+</section>
+
+<!-- ============================================================
+     SCREENS — one <section class="variant"> per output variant.
+     Replace the example below with the real screens for this
+     design. See the rendering rules at the top of this template.
+     ============================================================ -->
+
+<section class="variant">
+    <h2>V1: &lt;example variant title&gt;</h2>
+    <p class="variant-note">Optional one-line context (delete if not needed).</p>
+
+    <div class="screen">
+        <div class="terminal"><span class="prompt-sigil">$</span> &lt;binary&gt; &lt;subcommand&gt; --flag value
+<span class="stream-stdout">S|</span> example stdout line
+</div>
+        <div class="exit">[exit <span class="exit-code-ok">0</span>]</div>
+    </div>
+
+    <div class="screen">
+        <div class="terminal"><span class="prompt-sigil">$</span> &lt;binary&gt; &lt;subcommand&gt; --bad-input
+<span class="stream-stderr">E|</span> <span class="error-label">Error:</span> &lt;noun&gt; &quot;&lt;identifier&gt;&quot;: &lt;reason&gt;
+<span class="stream-stderr">E|</span>   <span class="hint-label">Hint:</span> <span class="hint-text">&lt;actionable next step — only when hints are required&gt;</span>
+</div>
+        <div class="exit">[exit <span class="exit-code-fail">64</span>]</div>
+    </div>
+
+    <!-- Example: a side-effect-only screen.
+         The terminal block contains only the prompt (no S|/E| body lines).
+         The design-flag banner makes the absence of output explicit and
+         reviewable, instead of hiding it behind an "S| (no output ...)"
+         line that looks like the command produced it. -->
+    <div class="screen">
+        <div class="terminal"><span class="prompt-sigil">$</span> &lt;binary&gt; &lt;side-effect-subcommand&gt;
+</div>
+        <div class="exit">[exit <span class="exit-code-ok">0</span>]</div>
+        <div class="design-flag">
+            Side-effect-only command: produces no stdout by design.
+            Verify the absence of output is intentional.
+        </div>
+    </div>
+</section>
+
+<!-- ============================================================
+     Optional final section. Include only when the design uses
+     anything beyond static text + ANSI color.
+     ============================================================ -->
+
+<!--
+<section class="non-textual">
+    <h2>Non-textual behaviors (out of scope for screens)</h2>
+    <ul>
+        <li>Describe spinners, progress bars, cursor movements, screen
+            clears, color-aware table layout, etc. in prose here.</li>
+    </ul>
+</section>
+-->
+
+</body>
+</html>

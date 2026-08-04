@@ -1,0 +1,58 @@
+{
+  "$comment": "The manifest. This file is the single source of truth for which skills exist on this machine and how visible each one is. Edit it, then run `bin/skills sync`.",
+
+  "targets": [
+    "~/.claude/skills",
+    "~/.agents/skills"
+  ],
+
+  "sources": {
+    "own": {
+      "type": "local",
+      "path": "skills"
+    },
+    "mattpocock": {
+      "type": "github",
+      "repo": "mattpocock/skills",
+      "ref": "main"
+    },
+    "superpowers": {
+      "type": "github",
+      "repo": "obra/superpowers",
+      "ref": "main"
+    },
+    "vercel": {
+      "type": "github",
+      "repo": "vercel-labs/skills",
+      "ref": "main"
+    }
+  },
+
+  "install": [
+    { "skill": "axis-planning", "source": "own", "tier": "auto" },
+    { "skill": "planning", "source": "own", "tier": "auto" },
+    { "skill": "cli-surface", "source": "own", "tier": "on-demand" },
+    { "skill": "package-design", "source": "own", "tier": "on-demand" },
+    { "skill": "roundtable-review", "source": "own", "tier": "on-demand" },
+
+    { "$comment": "Deleted upstream (mattpocock e112a6b, 7d3ada9). Rescued into skills/ — we own them now.",
+      "skill": "zoom-out", "source": "own", "tier": "on-demand" },
+    { "skill": "caveman", "source": "own", "tier": "on-demand" },
+
+    { "skill": "grill-me", "source": "mattpocock", "tier": "auto" },
+    { "skill": "grill-with-docs", "source": "mattpocock", "tier": "auto" },
+    { "skill": "diagnosing-bugs", "source": "mattpocock", "tier": "auto" },
+    { "skill": "tdd", "source": "mattpocock", "tier": "auto" },
+    { "skill": "triage", "source": "mattpocock", "tier": "auto" },
+    { "skill": "code-review", "source": "mattpocock", "tier": "on-demand" },
+    { "skill": "improve-codebase-architecture", "source": "mattpocock", "tier": "on-demand" },
+    { "skill": "prototype", "source": "mattpocock", "tier": "on-demand" },
+    { "skill": "to-tickets", "source": "mattpocock", "tier": "on-demand" },
+    { "skill": "to-spec", "source": "mattpocock", "tier": "on-demand" },
+    { "skill": "handoff", "source": "mattpocock", "tier": "on-demand" },
+    { "skill": "writing-great-skills", "source": "mattpocock", "tier": "on-demand" },
+    { "skill": "wayfinder", "source": "mattpocock", "tier": "on-demand" },
+
+    { "skill": "find-skills", "source": "vercel", "tier": "on-demand" }
+  ]
+}
