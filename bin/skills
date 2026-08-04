@@ -295,6 +295,18 @@ cmd_doctor() {
     find_skill_dir "$root" "$skill" >/dev/null 2>&1 || echo "   $skill ($source)"
   done < <(jq -r '.install[] | select(.tier != "off") | [.skill, .source] | @tsv' "$MANIFEST")
 
+  # A skill's own frontmatter wins over our tier. Marking one `auto` when it
+  # says disable-model-invocation makes the manifest claim something untrue.
+  echo "== tier auto, but the skill disables model invocation itself"
+  while read -r entry; do
+    local skill source root dir
+    skill="$(cut -f1 <<<"$entry")"; source="$(cut -f2 <<<"$entry")"
+    root="$(source_root "$source")"
+    dir="$(find_skill_dir "$root" "$skill" 2>/dev/null)" || continue
+    awk '/^---$/{n++; next} n==1' "$dir/SKILL.md" \
+      | grep -qi '^disable-model-invocation: *true' && echo "   $skill ($source) — will never fire on its own"
+  done < <(jq -r '.install[] | select(.tier == "auto") | [.skill, .source] | @tsv' "$MANIFEST")
+
   echo "== skills claimed by more than one manifest entry"
   jq -r '.install | group_by(.skill)[] | select(length > 1) | "   \(.[0].skill): \(map(.source) | join(", "))"' "$MANIFEST"
 

@@ -1,11 +1,9 @@
 {
   "$comment": "The manifest. This file is the single source of truth for which skills exist on this machine and how visible each one is. Edit it, then run `bin/skills sync`.",
-
   "targets": [
     "~/.claude/skills",
     "~/.agents/skills"
   ],
-
   "sources": {
     "own": {
       "type": "local",
@@ -27,25 +25,118 @@
       "ref": "main"
     }
   },
-
   "install": [
-    { "skill": "cli-surface", "source": "own", "tier": "on-demand" },
-    { "skill": "roundtable-review", "source": "own", "tier": "on-demand" },
-
-    { "skill": "grill-me", "source": "mattpocock", "tier": "auto" },
-    { "skill": "grill-with-docs", "source": "mattpocock", "tier": "auto" },
-    { "skill": "diagnosing-bugs", "source": "mattpocock", "tier": "auto" },
-    { "skill": "tdd", "source": "mattpocock", "tier": "auto" },
-    { "skill": "triage", "source": "mattpocock", "tier": "auto" },
-    { "skill": "code-review", "source": "mattpocock", "tier": "on-demand" },
-    { "skill": "improve-codebase-architecture", "source": "mattpocock", "tier": "on-demand" },
-    { "skill": "prototype", "source": "mattpocock", "tier": "on-demand" },
-    { "skill": "to-tickets", "source": "mattpocock", "tier": "on-demand" },
-    { "skill": "to-spec", "source": "mattpocock", "tier": "on-demand" },
-    { "skill": "handoff", "source": "mattpocock", "tier": "on-demand" },
-    { "skill": "writing-great-skills", "source": "mattpocock", "tier": "on-demand" },
-    { "skill": "wayfinder", "source": "mattpocock", "tier": "on-demand" },
-
-    { "skill": "find-skills", "source": "vercel", "tier": "on-demand" }
+    {
+      "skill": "cli-surface",
+      "source": "own",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "roundtable-review",
+      "source": "own",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "grill-me",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "grill-with-docs",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "diagnosing-bugs",
+      "source": "mattpocock",
+      "tier": "auto"
+    },
+    {
+      "skill": "tdd",
+      "source": "mattpocock",
+      "tier": "auto"
+    },
+    {
+      "skill": "triage",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "$comment": "The primitive grill-me and grill-with-docs both run on, and the two vocabulary layers other skills pull in. Model-invoked upstream, so auto.",
+      "skill": "grilling",
+      "source": "mattpocock",
+      "tier": "auto"
+    },
+    {
+      "skill": "domain-modeling",
+      "source": "mattpocock",
+      "tier": "auto"
+    },
+    {
+      "skill": "codebase-design",
+      "source": "mattpocock",
+      "tier": "auto"
+    },
+    {
+      "$comment": "disable-model-invocation upstream — typed, never picked.",
+      "skill": "ask-matt",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "implement",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "setup-matt-pocock-skills",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "code-review",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "improve-codebase-architecture",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "prototype",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "to-tickets",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "to-spec",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "handoff",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "writing-great-skills",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "wayfinder",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "find-skills",
+      "source": "vercel",
+      "tier": "on-demand"
+    }
   ]
 }
