@@ -134,6 +134,18 @@
       "tier": "on-demand"
     },
     {
+      "$comment": "Feeds the main flow at grill-with-docs. Typed, not picked.",
+      "skill": "research",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "$comment": "disable-model-invocation upstream — typed, never picked.",
+      "skill": "teach",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
       "skill": "find-skills",
       "source": "vercel",
       "tier": "on-demand"
