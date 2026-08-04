@@ -57,8 +57,9 @@ Bad, and accepted:
 - `skillOverrides` is Claude-specific. Codex gets the skills but not the tiering; every
   skill is visible there. Acceptable while Codex is the secondary harness — revisit if
   that flips.
-- Symlinks mean a skill's content can change under a running session after `update`.
-  Preferred over copying, which would make drift invisible.
+- Copying means a target can drift from its source, and an edit made to an installed
+  copy is silently lost on the next sync. Mitigated by hashing into the receipt so
+  `status` reports drift, but not prevented. See ADR 0002.
 - Upstream renames break entries. Deliberate: `sync` warns and `doctor` lists them, so a
   rename is a thing I decide about rather than a silent disappearance. This already
   caught six stale names on the first run.

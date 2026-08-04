@@ -22,16 +22,25 @@ Tiers are about attention, not about tokens.
 Claude Code, `~/.agents/skills` for Codex and other agents that read the shared
 convention.
 
-**Owned link** — a symlink in a target that resolves into this repo. `sync` will prune
-an owned link; it will never touch anything else.
+**Receipt** — `.skills-receipt.json` at the root of each target, mapping installed skill
+name to source, tier, and content hash. It is the record of what this tool put there.
+`sync` may delete or overwrite a directory only if the receipt names it; everything else
+in the target is **foreign** and left alone.
+
+**Drift** — a copy in a target whose hash no longer matches its receipt entry. Means
+someone edited the installed copy rather than the source. `status` reports it; `sync`
+silently overwrites it.
 
 **Rescued skill** — a skill an upstream repo deleted that we still want. Copied into
 `skills/` and reassigned `source: "own"`. Rescuing is a one-way door.
 
 ## Boundaries
 
-- The manifest is authoritative. If a skill is on disk but not in the manifest, that is
-  drift, and `status` reports it.
+- The manifest is authoritative. Targets are derived state — a target can be deleted
+  entirely and rebuilt by `sync`.
+- **Install by copy, never by symlink.** Sandboxed agent sessions cannot follow a
+  symlink out of the sandbox, so a linked skill is an invisible skill.
+- A target is never edited by hand. Edit `skills/`, then sync.
 - `vendor/` is a cache. Deleting it must never lose information; everything needed to
   rebuild it is in `skills.json` + `skills.lock.json`.
 - We never edit anything under `vendor/`. To change an external skill, rescue it first.

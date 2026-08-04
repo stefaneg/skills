@@ -2,15 +2,17 @@
 #
 # skills — manifest-driven management of agent skills across Claude and Codex.
 #
-#   skills sync              resolve sources, link installed skills, refresh overrides
+#   skills sync              resolve sources, install skills, refresh overrides
 #   skills list              show the manifest with resolved paths and tiers
 #   skills status            show drift between the manifest and what's on disk
 #   skills update [source]   move a github source to the tip of its ref, relock
 #   skills overrides         print the skillOverrides block for ~/.claude/settings.json
-#   skills doctor            find orphaned links, duplicate skills, missing sources
+#   skills doctor            find unresolvable entries, duplicates, tier counts
 #
-# The manifest (skills.json) is authoritative. Everything under vendor/ is a
-# cache and can be deleted at any time.
+# Skills are COPIED into the targets, not symlinked, so that sandboxed agent
+# sessions can read them. Each target carries a receipt (.skills-receipt.json)
+# recording what we installed and its content hash — that receipt is the only
+# thing that authorises this script to delete or overwrite anything.
 
 set -euo pipefail
 
@@ -19,6 +21,7 @@ MANIFEST="$REPO/skills.json"
 LOCK="$REPO/skills.lock.json"
 VENDOR="$REPO/vendor"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+RECEIPT=".skills-receipt.json"
 
 die() { echo "error: $*" >&2; exit 1; }
 info() { echo "$*"; }
@@ -78,39 +81,55 @@ find_skill_dir() {
   echo "$hit"
 }
 
-# ------------------------------------------------------------------ links ----
+# --------------------------------------------------------------- receipts ----
 
-# Only ever remove a link that points into this repo or its vendor cache —
-# never touch a skill some other tool installed.
-owned_by_us() {
-  local link="$1" resolved
-  [ -L "$link" ] || return 1
-  resolved="$(cd "$(dirname "$link")" && readlink "$link")"
-  case "$resolved" in "$REPO"/*) return 0 ;; *) return 1 ;; esac
+# Content hash over relative paths, so a source and its copy hash identically.
+skill_hash() {
+  local dir="$1"
+  ( cd "$dir" && find . -type f -not -name '.DS_Store' -print0 \
+      | LC_ALL=C sort -z \
+      | xargs -0 shasum -a 256 2>/dev/null \
+      | shasum -a 256 | cut -d' ' -f1 )
 }
 
-link_skill() {
+receipt_path() { echo "$1/$RECEIPT"; }
+
+receipt_read() {
+  local f; f="$(receipt_path "$1")"
+  [ -f "$f" ] && cat "$f" || echo '{}'
+}
+
+receipt_has() {
+  jq -e --arg s "$2" 'has($s)' <<<"$(receipt_read "$1")" >/dev/null
+}
+
+# ---------------------------------------------------------------- install ----
+
+# Copy, never link — symlinks are invisible to sandboxed sessions. Refuse to
+# touch a directory we have no receipt for; that belongs to someone else.
+install_skill() {
   local src="$1" name="$2" target_dir="$3"
   local target="$target_dir/$name"
 
-  if [ -e "$target" ] && ! [ -L "$target" ]; then
-    die "$target is a real directory, not a link. Move it into this repo's skills/ or delete it, then re-run."
+  if [ -e "$target" ] && ! [ -L "$target" ] && ! receipt_has "$target_dir" "$name"; then
+    die "$target exists and is not ours (no receipt entry). Move it aside, or add it to the manifest, then re-run."
   fi
-  ln -sfn "$src" "$target"
+
+  rm -rf "$target"
+  mkdir -p "$target"
+  cp -R "$src/." "$target/"
 }
 
-prune_targets() {
-  local target_dir="$1" wanted="$2" link name
-  [ -d "$target_dir" ] || return 0
-  for link in "$target_dir"/*; do
-    [ -e "$link" ] || [ -L "$link" ] || continue
-    owned_by_us "$link" || continue
-    name="$(basename "$link")"
+prune_target() {
+  local target_dir="$1" wanted="$2" old name
+  old="$(receipt_read "$target_dir")"
+  while read -r name; do
+    [ -n "$name" ] || continue
     if ! grep -qx "$name" <<<"$wanted"; then
-      rm -f "$link"
-      info "  unlinked $name (no longer in manifest)"
+      rm -rf "${target_dir:?}/$name"
+      info "  removed $name (no longer in manifest)"
     fi
-  done
+  done < <(jq -r 'keys[]' <<<"$old")
 }
 
 # -------------------------------------------------------------- overrides ----
@@ -132,9 +151,11 @@ write_overrides() {
 
   cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
   tmp="$(mktemp)"
-  # Preserve any hand-written override not managed by the manifest.
+  # Drop overrides for skills we no longer install, keep any hand-written ones
+  # for skills outside the manifest.
   jq --argjson managed "$overrides" \
-     '.skillOverrides = ((.skillOverrides // {}) + $managed)' \
+     --argjson installed "$(jq '[.install[].skill]' "$MANIFEST")" \
+     '.skillOverrides = (((.skillOverrides // {}) | with_entries(select(.key | IN($installed[]) | not))) + $managed)' \
      "$CLAUDE_SETTINGS" > "$tmp"
   mv "$tmp" "$CLAUDE_SETTINGS"
   info "wrote $(jq 'length' <<<"$overrides") skillOverrides to $CLAUDE_SETTINGS (backup at $CLAUDE_SETTINGS.bak)"
@@ -147,21 +168,19 @@ cmd_sync() {
   [ "${1:-}" = "--write-settings" ] && write_settings=1
 
   # Fetch every github source referenced by an installed skill.
-  local needed
-  needed="$(jq -r '[.install[] | select(.tier != "off") | .source] | unique[]' "$MANIFEST")"
   while read -r name; do
     [ -n "$name" ] || continue
     [ "$(jq -r --arg n "$name" '.sources[$n].type' "$MANIFEST")" = "github" ] || continue
     info "resolving $name..."
     resolve_source "$name"
-  done <<<"$needed"
+  done < <(jq -r '[.install[] | select(.tier != "off") | .source] | unique[]' "$MANIFEST")
 
   relock
 
-  local wanted=""
+  local wanted="" new_receipt='{}'
   while read -r entry; do
     [ -n "$entry" ] || continue
-    local skill source tier root src
+    local skill source tier root src hash
     skill="$(cut -f1 <<<"$entry")"
     source="$(cut -f2 <<<"$entry")"
     tier="$(cut -f3 <<<"$entry")"
@@ -172,19 +191,24 @@ cmd_sync() {
       echo "warning: '$skill' not found in source '$source' — renamed or removed upstream?" >&2
       continue
     fi
+    hash="$(skill_hash "$src")"
 
     while read -r target; do
       target="$(expand_tilde "$target")"
       mkdir -p "$target"
-      link_skill "$src" "$skill" "$target"
+      install_skill "$src" "$skill" "$target"
     done < <(manifest_targets)
 
+    new_receipt="$(jq --arg s "$skill" --arg src "$source" --arg t "$tier" --arg h "$hash" \
+      '.[$s] = {source: $src, tier: $t, hash: $h}' <<<"$new_receipt")"
     wanted+="$skill"$'\n'
     info "  $skill [$tier] <- $source"
   done < <(jq -r '.install[] | [.skill, .source, .tier] | @tsv' "$MANIFEST")
 
   while read -r target; do
-    prune_targets "$(expand_tilde "$target")" "$wanted"
+    target="$(expand_tilde "$target")"
+    prune_target "$target" "$wanted"
+    echo "$new_receipt" > "$(receipt_path "$target")"
   done < <(manifest_targets)
 
   if [ "$write_settings" = 1 ]; then
@@ -238,19 +262,26 @@ cmd_status() {
     target="$(expand_tilde "$target")"
     echo "== $target"
     [ -d "$target" ] || { echo "   (missing)"; continue; }
-    local link name
-    for link in "$target"/*; do
-      [ -e "$link" ] || [ -L "$link" ] || continue
-      name="$(basename "$link")"
-      if owned_by_us "$link"; then
-        jq -e --arg s "$name" '.install[] | select(.skill == $s)' "$MANIFEST" >/dev/null \
-          && echo "   ok        $name" \
-          || echo "   orphan    $name (ours, not in manifest)"
-      elif [ -L "$link" ]; then
-        echo "   foreign   $name -> $(readlink "$link")"
+
+    local receipt name entry
+    receipt="$(receipt_read "$target")"
+
+    while read -r name; do
+      [ -n "$name" ] || continue
+      if [ ! -d "$target/$name" ]; then
+        echo "   gone      $name (in receipt, missing on disk — run sync)"
+      elif [ "$(skill_hash "$target/$name")" != "$(jq -r --arg s "$name" '.[$s].hash' <<<"$receipt")" ]; then
+        echo "   edited    $name (changed in place — sync will overwrite it)"
       else
-        echo "   unmanaged $name (real directory)"
+        echo "   ok        $name"
       fi
+    done < <(jq -r 'keys[]' <<<"$receipt")
+
+    for entry in "$target"/*; do
+      [ -d "$entry" ] || continue
+      name="$(basename "$entry")"
+      jq -e --arg s "$name" 'has($s)' <<<"$receipt" >/dev/null \
+        || echo "   foreign   $name (not ours — left alone)"
     done
   done < <(manifest_targets)
 }

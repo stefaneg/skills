@@ -5,8 +5,10 @@ Read `CONTEXT.md` first — it defines source, tier, target, owned link, rescued
 ## Rules
 
 - **`skills.json` is the interface.** Adding or removing a skill means editing the
-  manifest and running `bin/skills sync`. Never link a skill into a target by hand,
-  and never add one to `~/.claude/skills` directly.
+  manifest and running `bin/skills sync`. Never install a skill into a target by hand,
+  and never edit an installed copy — sync overwrites it.
+- **Install by copy, never symlink.** Sessions run sandboxed and cannot follow symlinks
+  out of the sandbox. If you find yourself reaching for `ln -s`, stop.
 - **Never edit `vendor/`.** It is a cache, wiped and rebuilt at will. To modify an
   external skill, copy it into `skills/`, change its entry to `source: "own"`, and note
   in the manifest why.

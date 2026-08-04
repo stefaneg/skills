@@ -29,15 +29,8 @@
   },
 
   "install": [
-    { "skill": "axis-planning", "source": "own", "tier": "auto" },
-    { "skill": "planning", "source": "own", "tier": "auto" },
     { "skill": "cli-surface", "source": "own", "tier": "on-demand" },
-    { "skill": "package-design", "source": "own", "tier": "on-demand" },
     { "skill": "roundtable-review", "source": "own", "tier": "on-demand" },
-
-    { "$comment": "Deleted upstream (mattpocock e112a6b, 7d3ada9). Rescued into skills/ — we own them now.",
-      "skill": "zoom-out", "source": "own", "tier": "on-demand" },
-    { "skill": "caveman", "source": "own", "tier": "on-demand" },
 
     { "skill": "grill-me", "source": "mattpocock", "tier": "auto" },
     { "skill": "grill-with-docs", "source": "mattpocock", "tier": "auto" },

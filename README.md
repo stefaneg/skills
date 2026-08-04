@@ -16,8 +16,13 @@ where each one comes from, and how visible it is. Nothing else installs skills.
 ```
 
 `bin/skills sync` makes the machine match the manifest: clones the sources it needs,
-symlinks the skills into both targets, removes links for skills you deleted from the
-manifest, and computes the `skillOverrides` block that enforces the tiers.
+copies the skills into both targets, removes skills you deleted from the manifest, and
+computes the `skillOverrides` block that enforces the tiers.
+
+Skills are **copied, not symlinked** — sandboxed agent sessions can't follow a symlink
+out of the sandbox. Each target keeps a `.skills-receipt.json` recording what was
+installed and its content hash. That receipt is the only thing authorising `sync` to
+delete or overwrite anything, so a directory you put there yourself is never touched.
 
 ## Tiers
 
@@ -74,8 +79,14 @@ Renames and deletions do, loudly — `sync` warns and `doctor` lists them.
 
 ### Remove a skill
 
-Delete the line, run `bin/skills sync`. The link is pruned. Pruning only ever touches
-symlinks pointing into this repo, so skills installed by other tools are left alone.
+Delete the line, run `bin/skills sync`. The copy is removed. Pruning only ever touches
+skills listed in that target's receipt, so anything installed by another tool survives.
+
+### Editing a skill
+
+Edit it in `skills/` and re-sync. **Never edit the copy in a target** — the next sync
+overwrites it. `bin/skills status` flags copies that have drifted (`edited`) so a lost
+change is at least a visible one.
 
 ## Layout
 
