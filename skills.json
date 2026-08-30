@@ -124,7 +124,8 @@
       "tier": "on-demand"
     },
     {
-      "skill": "writing-great-skills",
+      "$comment": "Renamed upstream from writing-great-skills.",
+      "skill": "writing-for-agents",
       "source": "mattpocock",
       "tier": "on-demand"
     },
@@ -142,6 +143,12 @@
     {
       "$comment": "disable-model-invocation upstream — typed, never picked.",
       "skill": "teach",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
+      "$comment": "One-line interrupt: /wait-what re-pitches the last message. disable-model-invocation upstream — typed, never picked.",
+      "skill": "wait-what",
       "source": "mattpocock",
       "tier": "on-demand"
     },
