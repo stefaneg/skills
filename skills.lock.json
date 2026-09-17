@@ -1,10 +1,13 @@
 {
   "sources": {
     "mattpocock": {
-      "sha": "6654f6b60cd9d5be8b54c6fafe44346dabeb3b76"
+      "sha": "959a8e9f1edc3adbe2f7e3054bb6fbefa6696260"
+    },
+    "superpowers": {
+      "sha": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
     },
     "vercel": {
-      "sha": "1164afa5f0e21ebd01e6fc11249759353f494ad1"
+      "sha": "1a6f8649f93dda000a9672e63e8c9c9eeed24da4"
     }
   }
 }
