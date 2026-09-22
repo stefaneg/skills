@@ -27,11 +27,6 @@
   },
   "install": [
     {
-      "skill": "cli-surface",
-      "source": "own",
-      "tier": "on-demand"
-    },
-    {
       "skill": "roundtable-review",
       "source": "own",
       "tier": "on-demand"
