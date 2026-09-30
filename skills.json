@@ -23,6 +23,11 @@
       "type": "github",
       "repo": "vercel-labs/skills",
       "ref": "main"
+    },
+    "herdr": {
+      "type": "github",
+      "repo": "herdrdev/herdr",
+      "ref": "master"
     }
   },
   "install": [
@@ -150,6 +155,11 @@
     {
       "skill": "find-skills",
       "source": "vercel",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "herdr",
+      "source": "herdr",
       "tier": "on-demand"
     }
   ]
