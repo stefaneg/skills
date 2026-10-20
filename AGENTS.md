@@ -1,6 +1,6 @@
 # Working in this repo
 
-Read `CONTEXT.md` first — it defines source, tier, target, owned link, rescued skill.
+Read `GLOSSARY.md` first — it defines source, tier, target, owned link, rescued skill.
 
 ## Rules
 
