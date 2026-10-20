@@ -4,6 +4,12 @@
     "~/.claude/skills",
     "~/.agents/skills"
   ],
+  "projects": {
+    "axis": {
+      "root": "../axis",
+      "install": []
+    }
+  },
   "sources": {
     "own": {
       "type": "local",

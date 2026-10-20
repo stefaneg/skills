@@ -5,10 +5,12 @@ Read `CONTEXT.md` first — it defines source, tier, target, owned link, rescued
 ## Rules
 
 - **`skills.json` is the interface.** Adding or removing a skill means editing the
-  manifest and running `bin/skills sync`. Never install a skill into a target by hand,
-  and never edit an installed copy — sync overwrites it.
+  manifest and running `bin/skills sync` for its scope. User copies are generated;
+  edit their sources. Project copies may be customised in the project; sync protects
+  those edits and requires an explicit merge, keep, or replace choice when upstream changes.
 - **Install by copy, never symlink.** Sessions run sandboxed and cannot follow symlinks
-  out of the sandbox. If you find yourself reaching for `ln -s`, stop.
+  out of the sandbox. Existing target-directory symlinks are resolved and deduplicated;
+  copy directly to the destination and preserve the alias. The installer creates no links.
 - **Never edit `vendor/`.** It is a cache, wiped and rebuilt at will. To modify an
   external skill, copy it into `skills/`, change its entry to `source: "own"`, and note
   in the manifest why.
@@ -30,11 +32,13 @@ are referenced by relative path from `SKILL.md`.
 
 ## Testing a change to `bin/skills`
 
-Don't test against the live targets. Copy the repo to a temp dir, rewrite `.targets` to
-point inside it, and sync there:
+Run `python3 -m unittest discover -s tests -v`. The integration tests copy the repo and
+use temporary user targets, project roots, and local Git remotes. For manual checks,
+copy the repo to a temp dir and rewrite both `.targets` and `.projects[].root` to point
+inside it before syncing. Never test against live targets.
 
 ```bash
 T=$(mktemp -d); cp -R . "$T"/
-jq '.targets = ["'"$T"'/out"]' "$T/skills.json" > "$T/s" && mv "$T/s" "$T/skills.json"
+jq '.targets = ["'"$T"'/out"] | .projects = {}' "$T/skills.json" > "$T/s" && mv "$T/s" "$T/skills.json"
 "$T/bin/skills" sync && ls -l "$T/out"
 ```
