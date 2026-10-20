@@ -34,6 +34,11 @@
       "type": "github",
       "repo": "herdrdev/herdr",
       "ref": "master"
+    },
+    "cursor": {
+      "type": "github",
+      "repo": "cursor/plugins",
+      "ref": "main"
     }
   },
   "install": [
@@ -105,6 +110,11 @@
       "tier": "on-demand"
     },
     {
+      "skill": "pr",
+      "source": "mattpocock",
+      "tier": "on-demand"
+    },
+    {
       "skill": "improve-codebase-architecture",
       "source": "mattpocock",
       "tier": "on-demand"
@@ -166,6 +176,16 @@
     {
       "skill": "herdr",
       "source": "herdr",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "reflect",
+      "source": "cursor",
+      "tier": "on-demand"
+    },
+    {
+      "skill": "technical-writing",
+      "source": "cursor",
       "tier": "on-demand"
     }
   ]

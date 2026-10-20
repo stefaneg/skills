@@ -1,10 +1,13 @@
 {
   "sources": {
+    "cursor": {
+      "sha": "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a"
+    },
     "herdr": {
       "sha": "347f9c99bc95672e5ebcb26753648e85801d3c71"
     },
     "mattpocock": {
-      "sha": "959a8e9f1edc3adbe2f7e3054bb6fbefa6696260"
+      "sha": "5da500e727a5878bcd4d3278dfec741e01917652"
     },
     "superpowers": {
       "sha": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797"
