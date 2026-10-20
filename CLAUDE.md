@@ -1,6 +1,6 @@
 # Working in this repo
 
-Read `GLOSSARY.md` first — it defines source, tier, target, owned link, rescued skill.
+Read `GLOSSARY.md` first — it defines source, scope, tier, target, receipt, baseline, customisation, rescued skill.
 
 ## Rules
 
